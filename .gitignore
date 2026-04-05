@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Statements — contains personal financial data
+statements/*.pdf
+
+# Generated data files — rebuild with: python process.py
+data/data.js
+data/transactions.json
+
+# Personal config — copy config.example.json to config.json and customise
+data/config.json
+
+# Legacy / personal files
+*.xlsx
+*.csv
+spending-tracker.html
+extract_pdfs.py
+analyze_truncation.py
+financial_analysis.py
+*.md
+!README.md

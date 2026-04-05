@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget Tracker — Macquarie Offset</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data/data.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3344;
+    --text: #e4e6ed;
+    --text2: #8b8fa3;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --green: #00b894;
+    --red: #e17055;
+    --orange: #fdcb6e;
+    --blue: #74b9ff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.5rem; font-weight: 600; }
+  h2 { font-size: 0.8rem; font-weight: 600; margin-bottom: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+  }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+
+  /* Data summary banner */
+  .data-summary {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 20px; margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    font-size: 0.85rem;
+  }
+  .data-summary .count { color: var(--green); font-weight: 600; }
+  .data-summary .meta { color: var(--text2); }
+  .data-summary .refresh { color: var(--accent2); font-size: 0.8rem; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+  }
+  .stat-card .label { color: var(--text2); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+  .stat-card .sub { font-size: 0.8rem; color: var(--text2); margin-top: 2px; }
+  .stat-card.green .value { color: var(--green); }
+  .stat-card.red .value { color: var(--red); }
+  .stat-card.blue .value { color: var(--blue); }
+  .stat-card.orange .value { color: var(--orange); }
+
+  /* Charts */
+  .charts-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 24px;
+  }
+  @media (max-width: 800px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px;
+  }
+  .chart-card.full { grid-column: 1 / -1; }
+  canvas { max-height: 300px; }
+
+  /* Tables */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; padding: 8px 12px; color: var(--text2); font-weight: 500;
+       border-bottom: 1px solid var(--border); font-size: 0.75rem; text-transform: uppercase; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .amount { font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.75rem; font-weight: 500;
+  }
+  .tag-warn { background: rgba(253, 203, 110, 0.15); color: var(--orange); }
+  .tag-bad { background: rgba(225, 112, 85, 0.15); color: var(--red); }
+  .tag-good { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+  .trend-up { color: var(--red); }
+  .trend-down { color: var(--green); }
+
+  /* Period selector */
+  .period-selector {
+    display: flex; gap: 4px; background: var(--surface2); border-radius: 8px; padding: 3px;
+  }
+  .period-btn {
+    padding: 6px 14px; border: none; background: transparent;
+    color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  }
+  .period-btn.active { background: var(--accent); color: white; }
+
+  /* Sections */
+  .section { margin-bottom: 32px; }
+
+  /* Alerts */
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 8px; font-size: 0.85rem;
+  }
+  .alert-item.warn { background: rgba(253, 203, 110, 0.08); border: 1px solid rgba(253, 203, 110, 0.2); }
+  .alert-item.bad { background: rgba(225, 112, 85, 0.08); border: 1px solid rgba(225, 112, 85, 0.2); }
+  .alert-item .alert-icon { font-size: 1.2rem; }
+  .alert-item .alert-text { flex: 1; }
+  .alert-item .alert-amount { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Strategic Planning */
+  .phase-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  }
+  .phase-header {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;
+  }
+  .phase-label { color: var(--text2); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .phase-value { font-size: 1.8rem; font-weight: 700; margin-top: 2px; }
+  .phase-value.green { color: var(--green); }
+  .phase-value.blue { color: var(--blue); }
+  .offset-bar {
+    height: 24px; background: var(--surface2); border-radius: 12px;
+    overflow: hidden; position: relative; margin-bottom: 12px;
+  }
+  .offset-fill {
+    height: 100%; border-radius: 12px; transition: width 0.6s ease;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    position: relative;
+  }
+  .offset-fill::after {
+    content: attr(data-pct); position: absolute; right: 8px; top: 50%;
+    transform: translateY(-50%); font-size: 0.75rem; font-weight: 600; color: white;
+  }
+  .phase-sub { color: var(--text2); font-size: 0.85rem; }
+  .phase-sub strong { color: var(--text); }
+
+  .flow-row {
+    display: flex; align-items: center; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 0.9rem;
+  }
+  .flow-row:last-child { border-bottom: none; }
+  .flow-row .flow-label { flex: 1; }
+  .flow-row .flow-amount { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 100px; text-align: right; }
+  .flow-row .flow-bar-wrap { flex: 1; margin-left: 16px; }
+  .flow-bar { height: 8px; border-radius: 4px; min-width: 2px; }
+  .flow-row.income .flow-amount { color: var(--green); }
+  .flow-row.expense .flow-amount { color: var(--red); }
+  .flow-row.mortgage .flow-amount { color: var(--accent2); }
+  .flow-row.savings .flow-amount { color: var(--blue); }
+  .flow-row.net .flow-amount { color: var(--green); font-size: 1.1rem; }
+  .flow-row.net { border-top: 2px solid var(--border); padding-top: 12px; margin-top: 4px; }
+  .flow-row.net .flow-label { font-weight: 600; color: var(--text); }
+
+  .hub-spoke-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .hub-spoke-grid { grid-template-columns: 1fr; } }
+  .hub-spoke-col h3 {
+    font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
+  }
+  .hub-spoke-col h3.hub { color: var(--accent2); border-color: var(--accent); }
+  .hub-spoke-col h3.spoke { color: var(--orange); border-color: var(--orange); }
+  .hs-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.85rem; }
+  .hs-row .hs-cat { color: var(--text2); }
+  .hs-row .hs-amt { font-weight: 500; font-variant-numeric: tabular-nums; }
+  .hs-total {
+    display: flex; justify-content: space-between; padding: 8px 0; margin-top: 4px;
+    border-top: 1px solid var(--border); font-weight: 600;
+  }
+  .spoke-allowance {
+    margin-top: 12px; padding: 12px 16px; background: var(--surface2); border-radius: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .spoke-allowance .label { color: var(--text2); font-size: 0.85rem; }
+  .spoke-allowance .value { font-size: 1.3rem; font-weight: 700; color: var(--orange); }
+
+  .projection-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 12px;
+  }
+  @media (max-width: 700px) { .projection-grid { grid-template-columns: 1fr; } }
+  .proj-card {
+    text-align: center; padding: 16px; background: var(--surface2); border-radius: 10px;
+  }
+  .proj-card .proj-val { font-size: 1.6rem; font-weight: 700; margin: 4px 0; }
+  .proj-card .proj-label { color: var(--text2); font-size: 0.8rem; }
+  .proj-card .proj-sub { color: var(--text2); font-size: 0.75rem; margin-top: 4px; }
+
+  /* Pagination */
+  .pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 0; border-top: 1px solid var(--border); margin-top: 8px;
+  }
+  .pagination button {
+    padding: 6px 16px; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  }
+  .pagination button:hover { border-color: var(--accent); }
+  .pagination button:disabled { opacity: 0.3; cursor: default; }
+  .pagination .page-info { color: var(--text2); font-size: 0.8rem; }
+
+  /* Search */
+  .search-bar {
+    display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+  }
+  .search-bar input {
+    flex: 1; padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.85rem; outline: none;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar select {
+    padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.85rem;
+  }
+
+  /* Spending Planner */
+  .planner-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin-bottom: 16px;
+  }
+  .slider-row {
+    display: flex; align-items: center; gap: 16px; margin: 16px 0 24px 0;
+  }
+  .slider-row input[type=range] {
+    flex: 1; accent-color: var(--accent);
+    height: 8px; -webkit-appearance: none; background: var(--surface2); border-radius: 4px;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+  }
+  .slider-value {
+    font-size: 1.8rem; font-weight: 700; color: var(--orange);
+    min-width: 120px; text-align: right;
+  }
+  .planner-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 700px) { .planner-grid { grid-template-columns: 1fr; } }
+  .planner-col h3 {
+    font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid var(--border);
+    color: var(--text2);
+  }
+  .planner-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0; font-size: 0.85rem;
+  }
+  .planner-row .cat-name { color: var(--text2); }
+  .planner-row .cat-amt { font-weight: 500; font-variant-numeric: tabular-nums; }
+  .planner-row .over { color: var(--red); }
+  .planner-row .under { color: var(--green); }
+  .planner-row .indicator { font-size: 0.75rem; margin-left: 4px; }
+  .planner-total {
+    display: flex; justify-content: space-between; padding: 10px 0; margin-top: 6px;
+    border-top: 1px solid var(--border); font-weight: 600;
+  }
+  .planner-impact {
+    padding: 16px; background: var(--surface2); border-radius: 10px;
+    text-align: center; margin-top: 12px;
+  }
+  .planner-impact .big { font-size: 1.6rem; font-weight: 700; margin: 4px 0; }
+  .planner-impact .label { color: var(--text2); font-size: 0.8rem; }
+  .planner-impact .sub { color: var(--text2); font-size: 0.75rem; margin-top: 4px; }
+  .planner-flow {
+    margin-top: 16px; padding: 16px; background: var(--surface2); border-radius: 10px;
+  }
+  .planner-flow-row {
+    display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.85rem;
+  }
+  .planner-flow-row.total { border-top: 2px solid var(--border); margin-top: 6px; padding-top: 10px; font-weight: 600; }
+  .planner-flow-row .positive { color: var(--green); }
+  .planner-flow-row .negative { color: var(--red); }
+  .tighten-note {
+    margin-top: 12px; padding: 12px 16px; border-radius: 8px;
+    background: rgba(225, 112, 85, 0.08); border: 1px solid rgba(225, 112, 85, 0.2);
+    font-size: 0.85rem; color: var(--text2);
+  }
+  .tighten-note strong { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Budget Tracker</h1>
+    <div class="header-right">
+      <div class="period-selector" id="periodSelector">
+        <button class="period-btn active" data-period="all">All Time</button>
+        <button class="period-btn" data-period="12m">12 Months</button>
+        <button class="period-btn" data-period="6m">6 Months</button>
+        <button class="period-btn" data-period="3m">3 Months</button>
+        <button class="period-btn" data-period="1m">This Month</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="data-summary" id="dataSummary"></div>
+
+  <!-- Strategic Planning Section -->
+  <div class="section" id="strategicSection">
+    <h2>Phase 1: Mortgage Offset Progress</h2>
+    <div class="phase-card">
+      <div class="phase-header">
+        <div>
+          <div class="phase-label">Offset Account Balance</div>
+          <div class="phase-value green" id="offsetBalance">$0</div>
+        </div>
+        <div style="text-align:right">
+          <div class="phase-label">Mortgage Target</div>
+          <div class="phase-value blue" id="mortgageTarget">—</div>
+        </div>
+      </div>
+      <div class="offset-bar">
+        <div class="offset-fill" id="offsetFill" data-pct="0%"></div>
+      </div>
+      <div class="phase-sub" id="offsetSub"></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h2>Monthly Cash Flow (Avg)</h2>
+        <div id="cashFlowBreakdown"></div>
+      </div>
+      <div class="chart-card">
+        <h2>Hub &amp; Spoke Allocation</h2>
+        <div id="hubSpokeBreakdown"></div>
+      </div>
+    </div>
+
+    <div class="phase-card" style="margin-top:16px">
+      <h2 style="margin-bottom:12px">Projection &amp; Targets</h2>
+      <div class="projection-grid" id="projectionGrid"></div>
+    </div>
+  </div>
+
+  <!-- Spending Account Planner -->
+  <div class="section" id="plannerSection">
+    <h2>Spending Account Planner</h2>
+    <div class="planner-card">
+      <div style="color:var(--text2); font-size:0.9rem; margin-bottom:8px;">
+        Model different weekly "Life Account" transfer amounts to see how they cover your variable spending and impact mortgage offset growth.
+      </div>
+      <div class="slider-row">
+        <span style="color:var(--text2);font-size:0.85rem;">$400/wk</span>
+        <input type="range" id="spokeSlider" min="400" max="900" step="25" value="600">
+        <span style="color:var(--text2);font-size:0.85rem;">$900/wk</span>
+        <div class="slider-value" id="sliderValue">$600/wk</div>
+      </div>
+      <div class="planner-grid" id="plannerGrid"></div>
+      <div id="plannerFlow"></div>
+      <div id="plannerTighten"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+
+  <div class="section">
+    <h2>Weekly Alerts</h2>
+    <div class="alert-list" id="alertList"></div>
+  </div>
+
+  <div class="section">
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <h2>Income vs Spending</h2>
+        <canvas id="incomeChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h2>Spending by Category</h2>
+        <canvas id="categoryChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h2>Top Merchants</h2>
+        <canvas id="merchantChart"></canvas>
+      </div>
+      <div class="chart-card full">
+        <h2>Daily Spending</h2>
+        <canvas id="dailyChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Subscriptions & Recurring</h2>
+    <div class="table-card">
+      <table id="subsTable">
+        <thead><tr><th>Name</th><th>Frequency</th><th class="amount">Amount</th><th class="amount">Monthly</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Category Breakdown</h2>
+    <div class="table-card">
+      <table id="catTable">
+        <thead><tr><th>Category</th><th class="amount">Total</th><th class="amount">Monthly Avg</th><th class="amount"># Txns</th><th>Trend</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 id="txHeader">All Transactions</h2>
+    <div class="table-card">
+      <div class="search-bar">
+        <input type="text" id="txSearch" placeholder="Search transactions...">
+        <select id="txCatFilter"><option value="">All categories</option></select>
+      </div>
+      <table id="txTable">
+        <thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amount">Amount</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="pagination" id="txPagination">
+        <button id="txPrev">&#8592; Previous</button>
+        <span class="page-info" id="txPageInfo"></span>
+        <button id="txNext">Next &#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== CONFIG FROM data.js ==========
+const MORTGAGE_TARGET = CONFIG.mortgage_target || 273000;
+const HUB_CATS = CONFIG.hub_categories || [];
+const SPOKE_CATS = CONFIG.spoke_categories || [];
+
+// ========== STATE ==========
+let allTransactions = TRANSACTIONS || [];
+let filteredTransactions = [...allTransactions];
+let currentPeriod = 'all';
+let txPage = 0, txSearchText = '', txCatFilterVal = '';
+const TX_PER_PAGE = 50;
+const charts = {};
+
+// ========== FORMATTERS ==========
+const fmt = n => '$' + Math.abs(n).toLocaleString('en-AU', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const fmtShort = n => {
+  if (Math.abs(n) >= 1000) return '$' + (Math.abs(n)/1000).toFixed(1) + 'k';
+  return '$' + Math.abs(n).toFixed(0);
+};
+const COLORS = ['#6c5ce7','#00b894','#e17055','#74b9ff','#fdcb6e','#a29bfe','#fd79a8','#55efc4','#fab1a0','#81ecec','#dfe6e9','#636e72','#b2bec3','#2d3436'];
+
+// ========== INIT ==========
+document.addEventListener('DOMContentLoaded', () => {
+  // Data summary
+  const dates = allTransactions.map(t => t.date).sort();
+  const totalD = allTransactions.filter(t => t.debit > 0).reduce((s, t) => s + t.debit, 0);
+  const totalC = allTransactions.filter(t => t.credit > 0).reduce((s, t) => s + t.credit, 0);
+  const sources = [...new Set(allTransactions.map(t => t._source).filter(Boolean))];
+  document.getElementById('dataSummary').innerHTML =
+    `<span><span class="count">${allTransactions.length}</span> transactions &mdash; ${dates[0]} to ${dates[dates.length-1]}</span>` +
+    `<span class="meta">${sources.length} statement(s) &mdash; Debits: ${fmt(totalD)} / Credits: ${fmt(totalC)}</span>` +
+    `<span class="refresh">Run <code>python process.py</code> to refresh</span>`;
+
+  document.getElementById('mortgageTarget').textContent = fmt(MORTGAGE_TARGET);
+
+  // Period selector
+  document.querySelectorAll('.period-btn[data-period]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.period-btn[data-period]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPeriod = btn.dataset.period;
+      txPage = 0;
+      applyFilter();
+      renderDashboard();
+    });
+  });
+
+  // Transaction table controls
+  document.getElementById('txSearch').addEventListener('input', e => {
+    txSearchText = e.target.value.toLowerCase();
+    txPage = 0;
+    renderTxTable(filteredTransactions);
+  });
+  document.getElementById('txCatFilter').addEventListener('change', e => {
+    txCatFilterVal = e.target.value;
+    txPage = 0;
+    renderTxTable(filteredTransactions);
+  });
+  document.getElementById('txPrev').addEventListener('click', () => { if (txPage > 0) { txPage--; renderTxTable(filteredTransactions); } });
+  document.getElementById('txNext').addEventListener('click', () => { txPage++; renderTxTable(filteredTransactions); });
+
+  // Spending planner slider
+  document.getElementById('spokeSlider').addEventListener('input', e => {
+    renderPlanner(parseInt(e.target.value));
+  });
+
+  renderDashboard();
+});
+
+function applyFilter() {
+  if (currentPeriod === 'all') {
+    filteredTransactions = [...allTransactions];
+  } else {
+    const monthsMap = { '12m': 12, '6m': 6, '3m': 3, '1m': 1 };
+    const months = monthsMap[currentPeriod] || 0;
+    const now = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - months, 1);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    filteredTransactions = allTransactions.filter(t => t.date >= cutoffStr);
+  }
+}
+
+// ========== RENDER ==========
+function renderDashboard() {
+  const debits = filteredTransactions.filter(t => t.debit > 0);
+  const credits = filteredTransactions.filter(t => t.credit > 0 && t.category === 'Income');
+  const savingsExclude = ['Savings Transfer', 'Internal Transfer'];
+  const realExpenses = debits.filter(t => !savingsExclude.includes(t.category));
+
+  const totalSpend = realExpenses.reduce((s, t) => s + t.debit, 0);
+  const totalIncome = credits.reduce((s, t) => s + t.credit, 0);
+  const months = new Set(filteredTransactions.map(t => t.date.slice(0, 7)));
+  const numMonths = Math.max(months.size, 1);
+
+  // Stats
+  const statsGrid = document.getElementById('statsGrid');
+  statsGrid.innerHTML = '';
+  const stats = [
+    { label: 'Total Income', value: fmt(totalIncome), sub: `${fmt(totalIncome/numMonths)}/mo`, cls: 'green' },
+    { label: 'Total Spending', value: fmt(totalSpend), sub: `${fmt(totalSpend/numMonths)}/mo`, cls: 'red' },
+    { label: 'Net Savings', value: fmt(totalIncome - totalSpend), sub: `${((totalIncome - totalSpend)/totalIncome*100).toFixed(0)}% savings rate`, cls: totalIncome > totalSpend ? 'green' : 'red' },
+    { label: 'Transactions', value: debits.length.toLocaleString(), sub: `across ${numMonths} month${numMonths>1?'s':''}`, cls: 'blue' },
+    { label: 'Food & Drink', value: fmt(realExpenses.filter(t=>['Dining & Drinks','Food Delivery','Convenience','Vending','Groceries'].includes(t.category)).reduce((s,t)=>s+t.debit,0)), sub: 'dining + delivery + groceries', cls: 'orange' },
+    { label: 'Daily Average', value: fmt(totalSpend / Math.max(1, (new Date(debits[debits.length-1]?.date) - new Date(debits[0]?.date)) / 86400000)), sub: 'on expenses', cls: 'blue' },
+  ];
+  stats.forEach(s => {
+    statsGrid.innerHTML += `<div class="stat-card ${s.cls}"><div class="label">${s.label}</div><div class="value">${s.value}</div><div class="sub">${s.sub}</div></div>`;
+  });
+
+  // Alerts
+  renderAlerts(realExpenses, numMonths);
+
+  // Sections
+  renderStrategic(filteredTransactions, numMonths);
+  renderPlanner(parseInt(document.getElementById('spokeSlider').value));
+  renderIncomeChart(months, credits, realExpenses);
+  renderCategoryChart(realExpenses);
+  renderMerchantChart(realExpenses);
+  renderDailyChart(realExpenses);
+  renderSubsTable(debits, numMonths);
+  renderCatTable(realExpenses, numMonths);
+  renderTxTable(filteredTransactions);
+}
+
+// ========== ALERTS ==========
+function renderAlerts(realExpenses, numMonths) {
+  const alertList = document.getElementById('alertList');
+  alertList.innerHTML = '';
+  const alerts = [];
+
+  const fdMonthly = realExpenses.filter(t => t.category === 'Food Delivery').reduce((s,t)=>s+t.debit,0) / numMonths;
+  if (fdMonthly > 200) alerts.push({ icon: '&#127789;', text: `Food delivery averaging ${fmt(fdMonthly)}/mo`, amount: fmt(fdMonthly)+'/mo', cls: fdMonthly > 400 ? 'bad' : 'warn' });
+
+  const dinMonthly = realExpenses.filter(t => t.category === 'Dining & Drinks').reduce((s,t)=>s+t.debit,0) / numMonths;
+  if (dinMonthly > 300) alerts.push({ icon: '&#127860;', text: `Dining out averaging ${fmt(dinMonthly)}/mo`, amount: fmt(dinMonthly)+'/mo', cls: dinMonthly > 600 ? 'bad' : 'warn' });
+
+  const gymMonthly = realExpenses.filter(t => t.category === 'Gym & Fitness').reduce((s,t)=>s+t.debit,0) / numMonths;
+  if (gymMonthly > 80) alerts.push({ icon: '&#127947;', text: `Gym/fitness totalling ${fmt(gymMonthly)}/mo`, amount: fmt(gymMonthly)+'/mo', cls: 'warn' });
+
+  const vendCount = realExpenses.filter(t => t.category === 'Vending').length / numMonths;
+  if (vendCount > 10) alerts.push({ icon: '&#127866;', text: `Vending machines: ${vendCount.toFixed(0)} purchases/mo`, amount: fmt(realExpenses.filter(t=>t.category==='Vending').reduce((s,t)=>s+t.debit,0)/numMonths)+'/mo', cls: 'warn' });
+
+  const tobacco = realExpenses.filter(t => t.category === 'Tobacco');
+  if (tobacco.length > 0) alerts.push({ icon: '&#128684;', text: `Tobacco/vaping: ${fmt(tobacco.reduce((s,t)=>s+t.debit,0)/numMonths)}/mo`, amount: fmt(tobacco.reduce((s,t)=>s+t.debit,0))+' total', cls: 'bad' });
+
+  const foodTotal = realExpenses.filter(t=>['Dining & Drinks','Food Delivery','Convenience','Vending','Groceries'].includes(t.category)).reduce((s,t)=>s+t.debit,0);
+  const groceryPct = foodTotal > 0 ? realExpenses.filter(t=>t.category==='Groceries').reduce((s,t)=>s+t.debit,0) / foodTotal * 100 : 0;
+  if (groceryPct < 15 && foodTotal > 0) alerts.push({ icon: '&#128722;', text: `Only ${groceryPct.toFixed(0)}% of food spend is groceries — cooking more could save hundreds`, amount: '', cls: 'warn' });
+
+  alerts.forEach(a => {
+    alertList.innerHTML += `<div class="alert-item ${a.cls}"><span class="alert-icon">${a.icon}</span><span class="alert-text">${a.text}</span><span class="alert-amount">${a.amount}</span></div>`;
+  });
+}
+
+// ========== STRATEGIC PLANNING ==========
+function renderStrategic(transactions, numMonths) {
+  const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date) || a.balance - b.balance);
+  const lastBalance = sorted.length > 0 ? sorted[sorted.length - 1].balance : 0;
+  const pct = Math.min(100, (lastBalance / MORTGAGE_TARGET) * 100);
+
+  document.getElementById('offsetBalance').textContent = fmt(lastBalance);
+  const fill = document.getElementById('offsetFill');
+  fill.style.width = pct.toFixed(1) + '%';
+  fill.setAttribute('data-pct', pct.toFixed(0) + '%');
+
+  const realIncome = transactions.filter(t => t.credit > 0 && t.category === 'Income');
+  const mortgageTxns = transactions.filter(t => t.category === 'Mortgage');
+  const savingsXfer = transactions.filter(t => t.category === 'Savings Transfer');
+  const allDebits = transactions.filter(t => t.debit > 0);
+  const trueExpenses = allDebits.filter(t => !['Savings Transfer', 'Mortgage', 'Internal Transfer'].includes(t.category));
+
+  const totalIncome = realIncome.reduce((s, t) => s + t.credit, 0);
+  const totalMortgage = mortgageTxns.reduce((s, t) => s + t.debit, 0);
+  const totalSavingsXfer = savingsXfer.reduce((s, t) => s + t.debit, 0);
+  const totalExpenses = trueExpenses.reduce((s, t) => s + t.debit, 0);
+  const netOffsetGrowth = totalIncome - totalMortgage - totalSavingsXfer - totalExpenses;
+
+  const moIncome = totalIncome / numMonths;
+  const moMortgage = totalMortgage / numMonths;
+  const moSavings = totalSavingsXfer / numMonths;
+  const moExpenses = totalExpenses / numMonths;
+  const moNet = netOffsetGrowth / numMonths;
+  const annualNet = moNet * 12;
+  const remaining = MORTGAGE_TARGET - lastBalance;
+  const yearsToTarget = remaining > 0 && annualNet > 0 ? remaining / annualNet : 0;
+
+  document.getElementById('offsetSub').innerHTML = `<strong>${fmt(remaining)}</strong> remaining &mdash; offset growing ~<strong>${fmt(moNet)}</strong>/mo (<strong>${fmt(annualNet)}</strong>/yr) &mdash; on track in <strong>${yearsToTarget.toFixed(1)} years</strong>`;
+
+  // Cash flow
+  const maxBar = moIncome;
+  document.getElementById('cashFlowBreakdown').innerHTML = `
+    <div class="flow-row income"><span class="flow-label">Take-Home Pay</span><span class="flow-amount">+${fmt(moIncome)}/mo</span><span class="flow-bar-wrap"><div class="flow-bar" style="width:100%;background:var(--green)"></div></span></div>
+    <div class="flow-row mortgage"><span class="flow-label">Mortgage</span><span class="flow-amount">-${fmt(moMortgage)}/mo</span><span class="flow-bar-wrap"><div class="flow-bar" style="width:${(moMortgage/maxBar*100).toFixed(0)}%;background:var(--accent2)"></div></span></div>
+    <div class="flow-row expense"><span class="flow-label">Living Expenses</span><span class="flow-amount">-${fmt(moExpenses)}/mo</span><span class="flow-bar-wrap"><div class="flow-bar" style="width:${(moExpenses/maxBar*100).toFixed(0)}%;background:var(--red)"></div></span></div>
+    <div class="flow-row savings"><span class="flow-label">To Savings</span><span class="flow-amount">-${fmt(moSavings)}/mo</span><span class="flow-bar-wrap"><div class="flow-bar" style="width:${(moSavings/maxBar*100).toFixed(0)}%;background:var(--blue)"></div></span></div>
+    <div class="flow-row net"><span class="flow-label">&#8594; Retained in Offset</span><span class="flow-amount">+${fmt(moNet)}/mo</span><span class="flow-bar-wrap"><div class="flow-bar" style="width:${(moNet/maxBar*100).toFixed(0)}%;background:var(--green)"></div></span></div>
+  `;
+
+  // Hub & Spoke
+  const catTotals = {};
+  trueExpenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.debit; });
+
+  let hubTotal = 0, spokeTotal = 0;
+  let hubRows = '', spokeRows = '';
+
+  HUB_CATS.forEach(cat => {
+    if (catTotals[cat]) {
+      const mo = catTotals[cat] / numMonths;
+      hubTotal += mo;
+      hubRows += `<div class="hs-row"><span class="hs-cat">${cat}</span><span class="hs-amt">${fmt(mo)}/mo</span></div>`;
+    }
+  });
+
+  Object.keys(catTotals).forEach(cat => {
+    if (HUB_CATS.includes(cat)) return;
+    const mo = catTotals[cat] / numMonths;
+    spokeTotal += mo;
+    spokeRows += `<div class="hs-row"><span class="hs-cat">${cat}</span><span class="hs-amt">${fmt(mo)}/mo</span></div>`;
+  });
+
+  const weeklySpoke = spokeTotal / 4.33;
+
+  document.getElementById('hubSpokeBreakdown').innerHTML = `
+    <div class="hub-spoke-grid">
+      <div class="hub-spoke-col"><h3 class="hub">Hub (Auto-Debit from Offset)</h3>${hubRows}<div class="hs-total"><span>Total Hub</span><span>${fmt(hubTotal)}/mo</span></div></div>
+      <div class="hub-spoke-col"><h3 class="spoke">Spoke (Life Account)</h3>${spokeRows}<div class="hs-total"><span>Total Spoke</span><span>${fmt(spokeTotal)}/mo</span></div></div>
+    </div>
+    <div class="spoke-allowance"><span class="label">Current Average Weekly Spoke Spend</span><span class="value">${fmt(weeklySpoke)}/wk</span></div>
+  `;
+
+  // Projections
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses - totalMortgage) / totalIncome * 100).toFixed(0) : 0;
+  const phase1Target = 47500;
+  const onTrackPct = Math.min(100, annualNet > 0 ? (annualNet / phase1Target) * 100 : 0);
+
+  document.getElementById('projectionGrid').innerHTML = `
+    <div class="proj-card"><div class="proj-label">Phase 1 Complete</div><div class="proj-val" style="color:var(--green)">${yearsToTarget <= 0 ? 'Done!' : yearsToTarget.toFixed(1) + ' yrs'}</div><div class="proj-sub">$${(MORTGAGE_TARGET/1000).toFixed(0)}k offset target<br>~${(new Date().getFullYear() + Math.ceil(yearsToTarget))}</div></div>
+    <div class="proj-card"><div class="proj-label">Annual Offset Growth</div><div class="proj-val" style="color:${annualNet >= phase1Target ? 'var(--green)' : 'var(--orange)'}">${fmt(annualNet)}</div><div class="proj-sub">${onTrackPct.toFixed(0)}% of $45-50k target</div></div>
+    <div class="proj-card"><div class="proj-label">Effective Savings Rate</div><div class="proj-val" style="color:${savingsRate >= 30 ? 'var(--green)' : 'var(--orange)'}">${savingsRate}%</div><div class="proj-sub">Income retained (excl. mortgage)</div></div>
+  `;
+
+  // Store computed values for planner
+  window._strategic = { moIncome, moMortgage, moSavings, moExpenses, hubTotal, spokeTotal, catTotals, numMonths, lastBalance, annualNet };
+}
+
+// ========== SPENDING ACCOUNT PLANNER ==========
+function renderPlanner(weeklyAmount) {
+  const s = window._strategic;
+  if (!s) return;
+
+  document.getElementById('sliderValue').textContent = `$${weeklyAmount}/wk`;
+
+  const monthlyBudget = weeklyAmount * 4.33;
+  const currentMonthlySpoke = s.spokeTotal;
+
+  // Left column: what's covered
+  let leftRows = '';
+  let totalActual = 0;
+  const overCats = [];
+
+  // Get spoke category breakdowns
+  const spokeCatAmounts = [];
+  Object.keys(s.catTotals).forEach(cat => {
+    if (HUB_CATS.includes(cat)) return;
+    const mo = s.catTotals[cat] / s.numMonths;
+    spokeCatAmounts.push({ cat, mo });
+    totalActual += mo;
+  });
+  spokeCatAmounts.sort((a, b) => b.mo - a.mo);
+
+  // Proportionally allocate budget
+  const ratio = totalActual > 0 ? monthlyBudget / totalActual : 1;
+  spokeCatAmounts.forEach(({ cat, mo }) => {
+    const budgeted = mo * ratio;
+    const diff = budgeted - mo;
+    const cls = diff < -5 ? 'over' : diff > 5 ? 'under' : '';
+    const ind = diff < -5 ? `<span class="indicator over">-${fmt(Math.abs(diff))}</span>` :
+                diff > 5 ? `<span class="indicator under">+${fmt(diff)}</span>` : '';
+    if (diff < -5) overCats.push({ cat, shortfall: Math.abs(diff) });
+    leftRows += `<div class="planner-row"><span class="cat-name">${cat}</span><span class="cat-amt ${cls}">${fmt(mo)}/mo ${ind}</span></div>`;
+  });
+
+  // Right column: impact
+  const newMonthlyExpenses = s.hubTotal + monthlyBudget;
+  const newMonthlyNet = s.moIncome - s.moMortgage - s.moSavings - newMonthlyExpenses;
+  const newAnnualNet = newMonthlyNet * 12;
+  const remaining = MORTGAGE_TARGET - s.lastBalance;
+  const newYearsToTarget = remaining > 0 && newAnnualNet > 0 ? remaining / newAnnualNet : 99;
+  const currentYears = remaining > 0 && s.annualNet > 0 ? remaining / s.annualNet : 99;
+  const yearsDiff = newYearsToTarget - currentYears;
+
+  const diffColor = monthlyBudget < currentMonthlySpoke ? 'var(--green)' : 'var(--red)';
+  const savingsDiff = (currentMonthlySpoke - monthlyBudget);
+
+  document.getElementById('plannerGrid').innerHTML = `
+    <div class="planner-col">
+      <h3>What $${weeklyAmount}/wk Covers (Spoke Categories)</h3>
+      ${leftRows}
+      <div class="planner-total"><span>Monthly Budget</span><span>${fmt(monthlyBudget)}</span></div>
+      <div class="planner-total"><span>Current Avg Spend</span><span>${fmt(currentMonthlySpoke)}</span></div>
+      <div class="planner-total" style="color:${diffColor}"><span>${savingsDiff > 0 ? 'Savings vs Current' : 'Overspend vs Current'}</span><span>${savingsDiff > 0 ? '+' : ''}${fmt(savingsDiff)}/mo</span></div>
+    </div>
+    <div class="planner-col">
+      <h3>Impact on Offset Growth</h3>
+      <div class="planner-impact"><div class="label">Annual Offset Growth</div><div class="big" style="color:${newAnnualNet >= 47500 ? 'var(--green)' : 'var(--orange)'}">${fmt(newAnnualNet)}/yr</div><div class="sub">vs current ${fmt(s.annualNet)}/yr</div></div>
+      <div class="planner-impact" style="margin-top:8px"><div class="label">Years to $${(MORTGAGE_TARGET/1000).toFixed(0)}k</div><div class="big" style="color:${newYearsToTarget < currentYears ? 'var(--green)' : 'var(--orange)'}">${newYearsToTarget.toFixed(1)} yrs</div><div class="sub">${yearsDiff > 0 ? '+' : ''}${yearsDiff.toFixed(1)} yrs vs current trajectory</div></div>
+      <div class="planner-impact" style="margin-top:8px"><div class="label">Monthly Savings to Offset</div><div class="big" style="color:var(--green)">${fmt(newMonthlyNet)}/mo</div><div class="sub">after all expenses + mortgage + savings</div></div>
+    </div>
+  `;
+
+  // Flow visualization
+  document.getElementById('plannerFlow').innerHTML = `
+    <div class="planner-flow">
+      <div style="font-size:0.8rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;">Monthly Flow with $${weeklyAmount}/wk Life Account</div>
+      <div class="planner-flow-row"><span>Salary (take-home)</span><span class="positive">+${fmt(s.moIncome)}</span></div>
+      <div class="planner-flow-row"><span>Mortgage</span><span class="negative">-${fmt(s.moMortgage)}</span></div>
+      <div class="planner-flow-row"><span>Hub (fixed costs)</span><span class="negative">-${fmt(s.hubTotal)}</span></div>
+      <div class="planner-flow-row"><span>Life Account transfer</span><span class="negative">-${fmt(monthlyBudget)}</span></div>
+      <div class="planner-flow-row"><span>Savings</span><span class="negative">-${fmt(s.moSavings)}</span></div>
+      <div class="planner-flow-row total"><span>&#8594; Retained in Offset</span><span class="positive">+${fmt(newMonthlyNet)}</span></div>
+    </div>
+  `;
+
+  // Tightening note
+  if (monthlyBudget < currentMonthlySpoke && overCats.length > 0) {
+    const topCuts = overCats.sort((a, b) => b.shortfall - a.shortfall).slice(0, 3);
+    const cutsList = topCuts.map(c => `<strong>${c.cat}</strong> (-${fmt(c.shortfall)}/mo)`).join(', ');
+    document.getElementById('plannerTighten').innerHTML = `
+      <div class="tighten-note">&#9888; This budget is <strong>${fmt(currentMonthlySpoke - monthlyBudget)}/mo less</strong> than current average spend. Categories to watch: ${cutsList}</div>
+    `;
+  } else {
+    document.getElementById('plannerTighten').innerHTML = '';
+  }
+}
+
+// ========== CHARTS ==========
+function renderIncomeChart(months, credits, expenses) {
+  const sorted = [...months].sort();
+  const incByMonth = {}, expByMonth = {};
+  sorted.forEach(m => { incByMonth[m] = 0; expByMonth[m] = 0; });
+  credits.forEach(t => { const m = t.date.slice(0,7); if (incByMonth[m] !== undefined) incByMonth[m] += t.credit; });
+  expenses.forEach(t => { const m = t.date.slice(0,7); if (expByMonth[m] !== undefined) expByMonth[m] += t.debit; });
+
+  if (charts.income) charts.income.destroy();
+  charts.income = new Chart(document.getElementById('incomeChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted,
+      datasets: [
+        { label: 'Income', data: sorted.map(m => incByMonth[m]), backgroundColor: 'rgba(0, 184, 148, 0.7)', borderRadius: 4 },
+        { label: 'Spending', data: sorted.map(m => expByMonth[m]), backgroundColor: 'rgba(225, 112, 85, 0.7)', borderRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#8b8fa3' } } },
+      scales: {
+        x: { ticks: { color: '#8b8fa3' }, grid: { color: 'rgba(46,51,68,0.5)' } },
+        y: { ticks: { color: '#8b8fa3', callback: v => fmtShort(v) }, grid: { color: 'rgba(46,51,68,0.5)' } }
+      }
+    }
+  });
+}
+
+function renderCategoryChart(expenses) {
+  const catTotals = {};
+  expenses.forEach(t => { catTotals[t.category] = (catTotals[t.category] || 0) + t.debit; });
+  const sorted = Object.entries(catTotals).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+  if (charts.category) charts.category.destroy();
+  charts.category = new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{ data: sorted.map(s => s[1]), backgroundColor: COLORS.slice(0, sorted.length), borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'right', labels: { color: '#8b8fa3', boxWidth: 12, padding: 8, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmt(ctx.parsed)}` } }
+      }
+    }
+  });
+}
+
+function renderMerchantChart(expenses) {
+  const merchants = {};
+  expenses.forEach(t => {
+    let name = t.description.replace(/^(Purchase at |Purchase from |Online purchase from |Debit card )/i, '').split(/\s{2,}/)[0].slice(0, 30);
+    merchants[name] = (merchants[name] || 0) + t.debit;
+  });
+  const sorted = Object.entries(merchants).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+  if (charts.merchant) charts.merchant.destroy();
+  charts.merchant = new Chart(document.getElementById('merchantChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s[0].slice(0, 20)),
+      datasets: [{ data: sorted.map(s => s[1]), backgroundColor: COLORS.slice(0, sorted.length), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.x) } } },
+      scales: {
+        x: { ticks: { color: '#8b8fa3', callback: v => fmtShort(v) }, grid: { color: 'rgba(46,51,68,0.5)' } },
+        y: { ticks: { color: '#8b8fa3', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderDailyChart(expenses) {
+  const daily = {};
+  expenses.forEach(t => { daily[t.date] = (daily[t.date] || 0) + t.debit; });
+  const sorted = Object.entries(daily).sort((a,b) => a[0].localeCompare(b[0]));
+  const rolling = sorted.map((entry, i) => {
+    const start = Math.max(0, i - 6);
+    const window = sorted.slice(start, i + 1);
+    return window.reduce((s, e) => s + e[1], 0) / window.length;
+  });
+
+  if (charts.daily) charts.daily.destroy();
+  charts.daily = new Chart(document.getElementById('dailyChart'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [
+        { type: 'bar', label: 'Daily Spend', data: sorted.map(s => s[1]), backgroundColor: 'rgba(108, 92, 231, 0.3)', borderRadius: 2 },
+        { type: 'line', label: '7-day Average', data: rolling, borderColor: '#e17055', borderWidth: 2, pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#8b8fa3' } } },
+      scales: {
+        x: { ticks: { color: '#8b8fa3', maxTicksLimit: 12, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: '#8b8fa3', callback: v => fmtShort(v) }, grid: { color: 'rgba(46,51,68,0.5)' } }
+      }
+    }
+  });
+}
+
+// ========== TABLES ==========
+function renderSubsTable(debits, numMonths) {
+  const descGroups = {};
+  debits.forEach(t => {
+    if (!descGroups[t.description]) descGroups[t.description] = [];
+    descGroups[t.description].push(t);
+  });
+
+  const subs = [];
+  for (const [desc, txns] of Object.entries(descGroups)) {
+    if (txns.length < 3) continue;
+    const amounts = txns.map(t => t.debit);
+    const mode = amounts.sort((a,b) => amounts.filter(v=>v===a).length - amounts.filter(v=>v===b).length).pop();
+    const consistent = amounts.filter(a => a === mode).length / amounts.length > 0.6;
+    if (!consistent) continue;
+
+    const dates = txns.map(t => new Date(t.date)).sort((a,b) => a-b);
+    const gaps = [];
+    for (let i = 1; i < dates.length; i++) gaps.push((dates[i] - dates[i-1]) / 86400000);
+    const avgGap = gaps.reduce((s,g) => s+g, 0) / gaps.length;
+    if (avgGap < 3 || avgGap > 45) continue;
+
+    const total = txns.reduce((s,t) => s+t.debit, 0);
+    const monthly = total / numMonths;
+    const freq = avgGap < 10 ? 'Weekly' : avgGap < 20 ? 'Fortnightly' : 'Monthly';
+    subs.push({ desc, amount: mode, freq, monthly, count: txns.length, category: txns[0].category });
+  }
+
+  subs.sort((a,b) => b.monthly - a.monthly);
+  const tbody = document.querySelector('#subsTable tbody');
+  tbody.innerHTML = '';
+  const essentialCats = ['Rent', 'Mortgage', 'Savings Transfer', 'Health Insurance', 'Phone/Internet'];
+  subs.forEach(s => {
+    const tag = essentialCats.includes(s.category) ? '<span class="tag tag-good">Essential</span>' : '<span class="tag tag-warn">Review</span>';
+    tbody.innerHTML += `<tr><td>${s.desc.slice(0, 45)}</td><td>${s.freq}</td><td class="amount">${fmt(s.amount)}</td><td class="amount">${fmt(s.monthly)}</td><td>${tag}</td></tr>`;
+  });
+}
+
+function renderCatTable(expenses, numMonths) {
+  const cats = {};
+  const catByMonth = {};
+  expenses.forEach(t => {
+    cats[t.category] = cats[t.category] || { total: 0, count: 0 };
+    cats[t.category].total += t.debit;
+    cats[t.category].count++;
+    const m = t.date.slice(0, 7);
+    if (!catByMonth[t.category]) catByMonth[t.category] = {};
+    catByMonth[t.category][m] = (catByMonth[t.category][m] || 0) + t.debit;
+  });
+
+  const sorted = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
+  const tbody = document.querySelector('#catTable tbody');
+  tbody.innerHTML = '';
+  sorted.forEach(([cat, info]) => {
+    const months = Object.keys(catByMonth[cat] || {}).sort();
+    let trend = '';
+    if (months.length >= 2) {
+      const last = catByMonth[cat][months[months.length-1]] || 0;
+      const prev = catByMonth[cat][months[months.length-2]] || 0;
+      if (prev > 0) {
+        const pct = ((last - prev) / prev * 100).toFixed(0);
+        trend = last > prev ? `<span class="trend-up">&#9650; ${pct}%</span>` : `<span class="trend-down">&#9660; ${Math.abs(pct)}%</span>`;
+      }
+    }
+    tbody.innerHTML += `<tr><td>${cat}</td><td class="amount">${fmt(info.total)}</td><td class="amount">${fmt(info.total / numMonths)}</td><td class="amount">${info.count}</td><td>${trend}</td></tr>`;
+  });
+}
+
+function renderTxTable(transactions) {
+  let filtered = [...transactions].reverse();
+  if (txSearchText) filtered = filtered.filter(t => t.description.toLowerCase().includes(txSearchText) || t.category.toLowerCase().includes(txSearchText) || t.date.includes(txSearchText));
+  if (txCatFilterVal) filtered = filtered.filter(t => t.category === txCatFilterVal);
+
+  const catSelect = document.getElementById('txCatFilter');
+  const existingOpts = new Set([...catSelect.options].map(o => o.value));
+  [...new Set(transactions.map(t => t.category))].sort().forEach(c => {
+    if (!existingOpts.has(c)) { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; catSelect.appendChild(opt); }
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TX_PER_PAGE));
+  if (txPage >= totalPages) txPage = totalPages - 1;
+  if (txPage < 0) txPage = 0;
+  const start = txPage * TX_PER_PAGE;
+  const pageItems = filtered.slice(start, start + TX_PER_PAGE);
+
+  const tbody = document.querySelector('#txTable tbody');
+  tbody.innerHTML = '';
+  pageItems.forEach(t => {
+    const amount = t.debit > 0 ? `-${fmt(t.debit)}` : `+${fmt(t.credit)}`;
+    const cls = t.debit > 0 ? 'trend-up' : 'trend-down';
+    tbody.innerHTML += `<tr><td>${t.date}</td><td>${t.description.slice(0, 60)}</td><td><span class="tag tag-${t.category === 'Income' ? 'good' : 'warn'}">${t.category}</span></td><td class="amount ${cls}">${amount}</td></tr>`;
+  });
+
+  document.getElementById('txHeader').textContent = `All Transactions (${filtered.length})`;
+  document.getElementById('txPageInfo').textContent = `Page ${txPage + 1} of ${totalPages} (${filtered.length} rows)`;
+  document.getElementById('txPrev').disabled = txPage === 0;
+  document.getElementById('txNext').disabled = txPage >= totalPages - 1;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "mortgage_target": 300000,
+  "categories": {
+    "Rent": ["TRANSFER TO LANDLORD"],
+    "Mortgage": ["TO ACCOUNT XX1234"],
+    "Partner Spending": ["TRANSFER TO LINKED ACCOUNT XX5678"],
+    "Savings Transfer": ["TRANSFER TO LINKED ACCOUNT XX9012", "TO LINKED ACCOUNT XX3456"],
+    "Charity": ["TRANSFER TO CHARITY"],
+    "Groceries": ["WOOLWORTHS", "COLES", "ALDI"],
+    "Health Insurance": ["HEALTH INSURANCE"],
+    "Gym & Fitness": ["GYM", "FITNESS"],
+    "Food Delivery": ["UBER *EATS", "UBER* EATS", "DOMINOS"],
+    "Dining & Drinks": ["KFC", "MCDONALDS", "SUBWAY"],
+    "Rideshare & Transport": ["UBER *TRIP", "UBER* TRIP", "LIME*", "TRANSLINK"],
+    "Vending": ["VENDING"],
+    "Convenience": ["7-ELEVEN"],
+    "Streaming": ["NETFLIX", "STAN.COM", "YOUTUBEPREMIUM", "PRIMEVIDEO"],
+    "Tech Subscriptions": ["OPENAI", "GITHUB", "GOOGLE ONE"],
+    "Other Subscriptions": ["SUBSCRIPTION"],
+    "Phone/Internet": ["OPTUS", "TELSTRA", "VODAFONE"],
+    "Tobacco": ["TOBACCONIST"],
+    "Alcohol": ["BWS", "DAN MURPHY"],
+    "Shopping": ["AMAZON", "KMART", "BIG W", "JB HI-FI"],
+    "Medical": ["PHARMACY", "DENTAL", "GP CLINIC"],
+    "Cleaning": ["CLEANERS"],
+    "Entertainment": ["CINEMA", "TICKETS", "STEAM"],
+    "Personal Transfers": ["TO FRIEND NAME"]
+  },
+  "internal_credit_keywords": ["FROM LINKED ACCOUNT XX3456"],
+  "hub_categories": [
+    "Rent", "Mortgage", "Charity", "Health Insurance",
+    "Phone/Internet", "Streaming", "Tech Subscriptions",
+    "Other Subscriptions", "Gym & Fitness", "Cleaning"
+  ],
+  "spoke_categories": [
+    "Dining & Drinks", "Food Delivery", "Groceries", "Convenience",
+    "Vending", "Rideshare & Transport", "Shopping", "Medical",
+    "Tobacco", "Alcohol", "Entertainment", "Personal Transfers", "Other"
+  ]
+}
