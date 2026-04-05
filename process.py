@@ -300,7 +300,9 @@ def main():
     before = len(all_transactions)
     all_transactions = deduplicate(all_transactions)
     dupes = before - len(all_transactions)
-    print(f"\n  Total: {before} raw → {len(all_transactions)} after dedup ({dupes} duplicates removed)")
+    print(f"\n  Total: {before} raw -> {len(all_transactions)} after dedup ({dupes} duplicates removed)")
+
+    exclude_keywords = [kw.upper() for kw in config.get("exclude_from_averages", [])]
 
     for t in all_transactions:
         if t["debit"] > 0:
@@ -309,6 +311,11 @@ def main():
             t["category"] = classify_credit(t["description"], internal_keywords)
         else:
             t["category"] = "Other"
+
+        # Mark one-offs to exclude from averages
+        up = t["description"].upper()
+        if any(kw in up for kw in exclude_keywords):
+            t["excluded"] = True
 
     dates = sorted(t["date"] for t in all_transactions)
     if dates:

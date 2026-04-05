@@ -27,6 +27,7 @@
     "Personal Transfers": ["TO FRIEND NAME"]
   },
   "internal_credit_keywords": ["FROM LINKED ACCOUNT XX3456"],
+  "exclude_from_averages": [],
   "hub_categories": [
     "Rent", "Mortgage", "Charity", "Health Insurance",
     "Phone/Internet", "Streaming", "Tech Subscriptions",

@@ -525,9 +525,10 @@ function applyFilter() {
 // ========== RENDER ==========
 function renderDashboard() {
   const debits = filteredTransactions.filter(t => t.debit > 0);
-  const credits = filteredTransactions.filter(t => t.credit > 0 && t.category === 'Income');
+  const credits = filteredTransactions.filter(t => t.credit > 0 && t.category === 'Income' && !t.excluded);
   const savingsExclude = ['Savings Transfer', 'Internal Transfer'];
-  const realExpenses = debits.filter(t => !savingsExclude.includes(t.category));
+  const realExpenses = debits.filter(t => !savingsExclude.includes(t.category) && !t.excluded);
+  const excludedTxns = filteredTransactions.filter(t => t.excluded);
 
   const totalSpend = realExpenses.reduce((s, t) => s + t.debit, 0);
   const totalIncome = credits.reduce((s, t) => s + t.credit, 0);
@@ -605,11 +606,11 @@ function renderStrategic(transactions, numMonths) {
   fill.style.width = pct.toFixed(1) + '%';
   fill.setAttribute('data-pct', pct.toFixed(0) + '%');
 
-  const realIncome = transactions.filter(t => t.credit > 0 && t.category === 'Income');
+  const realIncome = transactions.filter(t => t.credit > 0 && t.category === 'Income' && !t.excluded);
   const mortgageTxns = transactions.filter(t => t.category === 'Mortgage');
   const savingsXfer = transactions.filter(t => t.category === 'Savings Transfer');
   const allDebits = transactions.filter(t => t.debit > 0);
-  const trueExpenses = allDebits.filter(t => !['Savings Transfer', 'Mortgage', 'Internal Transfer'].includes(t.category));
+  const trueExpenses = allDebits.filter(t => !['Savings Transfer', 'Mortgage', 'Internal Transfer'].includes(t.category) && !t.excluded);
 
   const totalIncome = realIncome.reduce((s, t) => s + t.credit, 0);
   const totalMortgage = mortgageTxns.reduce((s, t) => s + t.debit, 0);
@@ -975,7 +976,9 @@ function renderTxTable(transactions) {
   pageItems.forEach(t => {
     const amount = t.debit > 0 ? `-${fmt(t.debit)}` : `+${fmt(t.credit)}`;
     const cls = t.debit > 0 ? 'trend-up' : 'trend-down';
-    tbody.innerHTML += `<tr><td>${t.date}</td><td>${t.description.slice(0, 60)}</td><td><span class="tag tag-${t.category === 'Income' ? 'good' : 'warn'}">${t.category}</span></td><td class="amount ${cls}">${amount}</td></tr>`;
+    const exTag = t.excluded ? ' <span class="tag" style="background:rgba(108,92,231,0.15);color:var(--accent2);font-size:0.7rem">excluded</span>' : '';
+    const rowStyle = t.excluded ? ' style="opacity:0.5"' : '';
+    tbody.innerHTML += `<tr${rowStyle}><td>${t.date}</td><td>${t.description.slice(0, 60)}${exTag}</td><td><span class="tag tag-${t.category === 'Income' ? 'good' : 'warn'}">${t.category}</span></td><td class="amount ${cls}">${amount}</td></tr>`;
   });
 
   document.getElementById('txHeader').textContent = `All Transactions (${filtered.length})`;
