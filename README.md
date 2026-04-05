@@ -24,12 +24,12 @@ cd macquarie-budget-tracker
 # 2. Install dependency
 pip install pdfplumber
 
-# 3. Configure
-cp data/config.example.json data/config.json
-# Edit data/config.json — set your mortgage_target, account keywords, merchants, etc.
-
-# 4. Add statements
+# 3. Add statements
 # Drop your Macquarie PDF statements into the statements/ folder
+
+# 4. Generate config
+python setup.py
+# Walks you through account transfers and auto-detects merchants
 
 # 5. Process
 python process.py
@@ -40,7 +40,14 @@ python process.py
 
 ## Configuration
 
-Edit `data/config.json` to match your accounts:
+`setup.py` scans your statements and auto-generates `data/config.json`:
+
+- Detects account transfers (mortgage, savings, partner) and asks you to label them
+- Auto-categorises common Australian merchants (Woolworths, Uber, Netflix, etc.)
+- Lists uncategorised merchants so you know what to refine
+- Prompts for your mortgage offset target
+
+You can also create the config manually — copy `data/config.example.json` to `data/config.json` and edit it.
 
 | Field | Purpose |
 |---|---|
@@ -55,14 +62,14 @@ Keywords are matched case-insensitively against transaction descriptions.
 ## How It Works
 
 ```
-statements/*.pdf  →  process.py  →  data/data.js  →  index.html
-                         ↑
-                  data/config.json
+statements/*.pdf  →  setup.py   →  data/config.json  (one-time)
+statements/*.pdf  →  process.py →  data/data.js      →  index.html
 ```
 
-1. `process.py` reads all PDFs in `statements/`, parses transactions using text extraction, deduplicates, and categorises using your config
-2. Outputs `data/data.js` (loaded by the dashboard) and `data/transactions.json` (reference copy)
-3. `index.html` loads `data/data.js` via a `<script>` tag — no fetch, no CORS issues, works from `file://`
+1. `setup.py` scans your PDFs, identifies merchants and transfers, and generates a starter `data/config.json`
+2. `process.py` reads all PDFs in `statements/`, parses transactions using text extraction, deduplicates, and categorises using your config
+3. Outputs `data/data.js` (loaded by the dashboard) and `data/transactions.json` (reference copy)
+4. `index.html` loads `data/data.js` via a `<script>` tag — no fetch, no CORS issues, works from `file://`
 
 ## Re-processing
 

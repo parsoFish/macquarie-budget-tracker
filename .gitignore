@@ -16,9 +16,8 @@ data/config.json
 # Legacy / personal files
 *.xlsx
 *.csv
-spending-tracker.html
+*.md
+!README.md
 extract_pdfs.py
 analyze_truncation.py
 financial_analysis.py
-*.md
-!README.md
