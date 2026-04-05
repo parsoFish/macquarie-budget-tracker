@@ -323,8 +323,8 @@
           <div class="phase-value green" id="offsetBalance">$0</div>
         </div>
         <div style="text-align:right">
-          <div class="phase-label">Mortgage Target</div>
-          <div class="phase-value blue" id="mortgageTarget">—</div>
+          <div class="phase-label">Mortgage Target <span style="font-size:0.65rem;font-weight:400;opacity:0.6;cursor:pointer" id="targetEdit" title="Click to change">(edit)</span></div>
+          <div class="phase-value blue" id="mortgageTarget" style="cursor:pointer" title="Click to change">&mdash;</div>
         </div>
       </div>
       <div class="offset-bar">
@@ -441,7 +441,7 @@
 
 <script>
 // ========== CONFIG FROM data.js ==========
-const MORTGAGE_TARGET = CONFIG.mortgage_target || 273000;
+let MORTGAGE_TARGET = parseInt(localStorage.getItem('mortgageTarget')) || CONFIG.mortgage_target || 273000;
 const HUB_CATS = CONFIG.hub_categories || [];
 const SPOKE_CATS = CONFIG.spoke_categories || [];
 
@@ -474,6 +474,22 @@ document.addEventListener('DOMContentLoaded', () => {
     `<span class="refresh">Run <code>python process.py</code> to refresh</span>`;
 
   document.getElementById('mortgageTarget').textContent = fmt(MORTGAGE_TARGET);
+
+  // Mortgage target editing
+  const editTarget = () => {
+    const current = (MORTGAGE_TARGET / 1000).toFixed(0);
+    const input = prompt(`Mortgage offset target (current: $${current}k):`, current + 'k');
+    if (!input) return;
+    const val = parseInt(input.replace(/[^0-9]/g, ''));
+    if (!val || val < 1) return;
+    // If they typed e.g. "300" assume thousands, if "300000" use as-is
+    MORTGAGE_TARGET = val < 10000 ? val * 1000 : val;
+    localStorage.setItem('mortgageTarget', MORTGAGE_TARGET);
+    document.getElementById('mortgageTarget').textContent = fmt(MORTGAGE_TARGET);
+    renderDashboard();
+  };
+  document.getElementById('mortgageTarget').addEventListener('click', editTarget);
+  document.getElementById('targetEdit').addEventListener('click', editTarget);
 
   // Period selector
   document.querySelectorAll('.period-btn[data-period]').forEach(btn => {
